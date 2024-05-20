@@ -1,125 +1,216 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'utils/globals.dart';
+import 'utils/color_schemes.g.dart';
+import 'help_screen.dart';
+import 'message_board_screen.dart';
+
+final themeModeProvider = StateProvider<ThemeMode>((ref)=>ThemeMode.system);
+final singleUserProvider = StateProvider<bool>((ref)=>false);
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+      const ProviderScope(
+          child: MyApp()
+      )
+  );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider.state);
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a blue toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      title: 'Own Message Board (from Slack API)',
+      theme: ThemeData(useMaterial3: true, colorScheme: lightColorScheme),
+      darkTheme: ThemeData(useMaterial3: true, colorScheme: darkColorScheme),
+      themeMode: themeMode.state,
+      home: TopPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class TopPage extends ConsumerWidget {
+  TopPage({Key? key}) : super(key: key);
+  final _formKey = GlobalKey<FormState>();
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+  final slackTokenTextController = TextEditingController();
+  final slackConversationTextController = TextEditingController();
+  final slackMemberTextController = TextEditingController();
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
-  final String title;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider.state);
+    final singleUserMode = ref.watch(singleUserProvider.state);
+    double mW = min(800, MediaQuery.of(context).size.width * 0.9);
+    double buttonWidth = min(450, mW*0.8);
+    double textFieldWidth = min(500, mW*0.9);
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+    // void _changeToggle(bool e) => setState(() => _active = e);
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('Own Message Board (from Slack API)'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sunny),
+            tooltip: 'Change Theme',
+            onPressed: () {
+              themeMode.state = (themeMode.state == ThemeMode.light ? ThemeMode.dark : ThemeMode.light);
+            },
+          ),
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+      body : SingleChildScrollView(
+        child: Container(
+          alignment: Alignment.center,
+            child: SizedBox(
+              width: mW*0.9,
+              child: Column(
+                children: [
+                  const SizedBox(height: 15),
+                  Card(
+                    child: ListTile(
+                      onTap: (){
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => AboutScreen()),
+                        );
+                      },
+                      title: const Text("How to setup SlackBot to my channel"),
+                      subtitle: const Text("Before using this application, please set up Slack Bot in your channel."),
+                      trailing: const Icon(Icons.question_mark_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  const Divider(),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: textFieldWidth,
+                          child: TextFormField(
+                            controller: slackTokenTextController,
+                            decoration: const InputDecoration(
+                                labelText: "Slack Socket Mode Endpoint",
+                                hintText: "wss://wss-primary.slack.com/link/?ticket=xxx&app_id=xxx",
+                                border: OutlineInputBorder()
+                            ),
+                            validator: (value) {
+                              if(value == null || value.isEmpty) {
+                                return "Please fill out the form";
+                              }
+                            },
+                          ),
+                        ),
+                        // const SizedBox(height: 15),
+                        // SizedBox(
+                        //   width: textFieldWidth,
+                        //   child: TextFormField(
+                        //     controller: slackConversationTextController,
+                        //     decoration: const InputDecoration(
+                        //         labelText: "Slack target channel name",
+                        //         hintText: 'general',
+                        //         border: OutlineInputBorder()
+                        //     ),
+                        //     validator: (value) {
+                        //       if(value == null || value.isEmpty) {
+                        //         return "Please fill out the form";
+                        //       }
+                        //     },
+                        //   ),
+                        // ),
+                        const SizedBox(height: 15),
+                        const Divider(),
+                        SizedBox(
+                          width: textFieldWidth,
+                          child: SwitchListTile(
+                            value: singleUserMode.state,
+                            title: const Text('Single speaker mode'),
+                            subtitle: const Text("Enable this to show only message from one user."),
+                            onChanged: (bool value) {
+                              singleUserMode.state = value;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+                        SizedBox(
+                          width: textFieldWidth,
+                          child: TextFormField(
+                            controller: slackMemberTextController,
+                            enabled: singleUserMode.state,
+                            decoration: const InputDecoration(
+                                labelText: "Slack target user (Member ID)",
+                                hintText: 'C1234567890',
+                                border: OutlineInputBorder()
+                            ),
+                            validator: (value) {
+                              if((value == null || value.isEmpty) && singleUserMode.state == true) {
+                                return "Please fill out the form";
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  const Divider(),
+                  const SizedBox(height: 15),
+                  SizedBox(
+                    width: buttonWidth,
+                    child: FilledButton(
+                      onPressed: () {
+                        if(_formKey.currentState!.validate()) {
+                          wssUri = slackTokenTextController.text;
+                          conversationId =
+                              slackConversationTextController.text;
+                          if (singleUserMode.state) {
+                            memberId = slackMemberTextController.text;
+                          }
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => MessageBoard()),
+                          );
+                        }
+
+                      },
+                      child: const Text("Configure"),
+                    ),
+                  ),
+                ]
+              ),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
+        )
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+
+
     );
   }
 }
+
+// class InitialPage extends StatefulWidget {
+//   const InitialPage({Key? key}) : super(key: key);
+//   @override
+//   InitialPageState createState() => InitialPageState();
+// }
+//
+// class InitialPageState extends State<InitialPage> {
+//   @override
+//   Widget build(BuildContext context) {
+//     return const Scaffold (
+//       body: Column(
+//         children: [
+//           Text('test2test2test2test2test2')
+//         ],
+//       ),
+//     );
+//   }
+// }
